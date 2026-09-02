@@ -1,9 +1,11 @@
 #include "movement.h"
 
-#define MAX_SPEED 500
-#define FINE_SPEED 100
+#define FAST_SPEED 150
+#define FINE_SPEED 25
+#define OFFSET_ANG 0
 #define FINE_THRESHOLD_DIS 10       // mm
 #define FINE_THRESHOLD_ANG 2       // degrees
+#define PRECISION 0.01
 
 
 int has_collided_left(oi_t *sensor) {
@@ -15,11 +17,11 @@ int has_collided_right(oi_t *sensor) {
 }
 
 int has_collided(oi_t *sensor) {
-    return has_collided_left || has_collided_right;
+    return has_collided_left(sensor) || has_collided_right(sensor);
 }
 
 void move_forward(oi_t *sensor, int centimeters) {
-    oi_setWheels(MAX_SPEED, MAX_SPEED);
+    oi_setWheels(FAST_SPEED, FAST_SPEED);
 
     int dist_traveled = 0; 
     
@@ -36,7 +38,7 @@ void move_forward(oi_t *sensor, int centimeters) {
 }
 
 void move_backward(oi_t *sensor, int centimeters) {
-    oi_setWheels(-MAX_SPEED, -MAX_SPEED);
+    oi_setWheels(-FAST_SPEED, -FAST_SPEED);
 
     int dist_traveled = 0; 
     
@@ -61,7 +63,7 @@ void move_backward(oi_t *sensor, int centimeters) {
  */
 void move_internal(oi_t *sensor, int cm) {
     const int mod = cm > 0;
-    oi_setWheels(mod * MAX_SPEED, mod * MAX_SPEED);
+    oi_setWheels(mod * FINE_SPEED, mod * FINE_SPEED);
 
     int dist_traveled = 0; 
     
@@ -74,31 +76,38 @@ void move_internal(oi_t *sensor, int cm) {
 }
 
 void turn_cw(oi_t *sensor, int degrees) {
-    oi_setWheels(-MAX_SPEED, MAX_SPEED);
+    double deg = 0.0;
 
-    int deg = 0; 
+    oi_setWheels(-FINE_SPEED, FINE_SPEED);
     
-    while (deg < degrees) {
+    while (deg < degrees - OFFSET_ANG - 15.0) {
 		oi_update(sensor);
-		deg += sensor->angle;
+		deg = deg - sensor->angle;
+		// printf("Fast: %f\n", deg);
 	}
 
-    if (deg > degrees)
+    oi_setWheels(-25, 25);
+    
+    while (((double)degrees - (double)OFFSET_ANG - deg) > PRECISION) {
+        oi_update(sensor);
+        deg = deg - sensor->angle;
+        // printf("Slow: %f\n", deg);
+    }
 
     oi_setWheels(0, 0); // stop
+    oi_update(sensor);
+    printf("Final: %f\n", deg);
 }
 
 void turn_ccw(oi_t *sensor, int degrees) {
-    oi_setWheels(MAX_SPEED, -MAX_SPEED);
+    oi_setWheels(FINE_SPEED, -FINE_SPEED);
 
     int deg = 0; 
     
-    while (deg < degrees) {
+    while (deg < degrees - OFFSET_ANG) {
 		oi_update(sensor);
 		deg += sensor->angle;
 	}
-
-    if (deg > degrees)
 
     oi_setWheels(0, 0); // stop
 }

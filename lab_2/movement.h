@@ -2,6 +2,7 @@
 #define MOVEMENT_H
 
 #include "open_interface.h"
+#include <stdio.h>
 
 /**
  * @name Has Collided on the left side

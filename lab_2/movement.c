@@ -55,6 +55,8 @@ void move_backward(oi_t *sensor, int centimeters) {
 /**
  * @name Move Internal
  * @brief Moves internally without 
+ * @param sensor
+ * @param cm positive for forward, negative for backward
  * @private
  */
 void move_internal(oi_t *sensor, int cm) {
@@ -102,18 +104,30 @@ void turn_ccw(oi_t *sensor, int degrees) {
 }
 
 void avoid(oi_t *sensor) {
-    // If collided back up 15 cm, turn 90 degrees, move laterally 25cm, then turn 90 degrees forward.
-    // If the collision occurs with the right bumper, the robot should initially spin 90 degrees to the left. 
-    // If the collision occurs with the left bumper, the platform should spin 90 degrees to the right.
-    // If both sensors report a collision, then pick a direction and perform a 90 degree spin.
+    /* 
+        If collided back up 15 cm, turn 90 degrees, move laterally 25cm, then turn 90 degrees forward.
+        If the collision occurs with the right bumper, the robot should initially spin 90 degrees to the left. 
+        If the collision occurs with the left bumper, the platform should spin 90 degrees to the right.
+        If both sensors report a collision, then pick a direction and perform a 90 degree spin.
+    */
 
-    // If left is triggered or if both are triggered
-    if (has_collided_left(sensor)) {
-
-        return;
-    }
-
+    // If right is triggered or if both are triggered
     if (has_collided_right(sensor)) {
-
+        move_internal(sensor, -25);
+        turn_ccw(sensor, 90);
+        move_internal(sensor, 25);
+        turn_cw(sensor, 90);
+        move_internal(sensor, 25);
     }
+
+    // If left is triggered
+    else if (has_collided_right(sensor)) {
+        move_internal(sensor, -25);
+        turn_cw(sensor, 90);
+        move_internal(sensor, 25);
+        turn_ccw(sensor, 90);
+        move_internal(sensor, 25);
+    }
+
+    // Otherwise nothing was triggered so do nothing
 }

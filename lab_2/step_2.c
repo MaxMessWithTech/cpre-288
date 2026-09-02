@@ -4,7 +4,7 @@
 #include "Timer.h"
 
 /**
- * step_1.c
+ * step_2.c
  */
 int main(void) {
 

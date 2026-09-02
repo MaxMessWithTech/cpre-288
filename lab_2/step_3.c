@@ -1,7 +1,7 @@
 #include "movement.h"
 
 /**
- * step_2.c
+ * step_3.c
  */
 int main(void) {
     oi_t *sensor = oi_alloc();

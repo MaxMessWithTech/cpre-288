@@ -1,11 +1,18 @@
+/**
+ * @name Movement
+ * @headerfile movement.h
+ * @author Max Miller
+ */
+
 #include "movement.h"
 
-#define FAST_SPEED 150
+#define FAST_SPEED 200
 #define FINE_SPEED 25
-#define OFFSET_ANG 0
-#define FINE_THRESHOLD_DIS 10       // mm
-#define FINE_THRESHOLD_ANG 2       // degrees
-#define PRECISION 0.01
+#define DIS_OFFSET_FACTOR 1.02
+#define ANG_OFFSET_FACTOR 1.055
+#define FINE_THRESHOLD_DIS 50       // mm
+#define FINE_THRESHOLD_ANG 15       // degrees
+#define PRECISION 0.1
 
 
 int has_collided_left(oi_t *sensor) {
@@ -21,37 +28,11 @@ int has_collided(oi_t *sensor) {
 }
 
 void move_forward(oi_t *sensor, int centimeters) {
-    oi_setWheels(FAST_SPEED, FAST_SPEED);
-
-    int dist_traveled = 0; 
-    
-    while (dist_traveled < centimeters * 10) {
-		oi_update(sensor);
-		dist_traveled += sensor->distance;
-
-        if (has_collided(sensor)) {
-            avoid(sensor);
-        }
-	}
-
-    oi_setWheels(0, 0); // stop
+    move_internal(sensor, centimeters, 1);
 }
 
 void move_backward(oi_t *sensor, int centimeters) {
-    oi_setWheels(-FAST_SPEED, -FAST_SPEED);
-
-    int dist_traveled = 0; 
-    
-    while (dist_traveled < centimeters * 10) {
-		oi_update(sensor);
-		dist_traveled += sensor->distance;
-
-        if (has_collided(sensor)) {
-            avoid(sensor);
-        }
-	}
-
-    oi_setWheels(0, 0); // stop
+    move_internal(sensor, -centimeters, 1);
 }
 
 /**
@@ -59,57 +40,103 @@ void move_backward(oi_t *sensor, int centimeters) {
  * @brief Moves internally without 
  * @param sensor
  * @param cm positive for forward, negative for backward
+ * @param do_avoid true/false
  * @private
  */
-void move_internal(oi_t *sensor, int cm) {
-    const int mod = cm > 0;
-    oi_setWheels(mod * FINE_SPEED, mod * FINE_SPEED);
+void move_internal(oi_t *sensor, int cm, int do_avoid) {
+    double dist_traveled = 0.0;
+    const int direction = cm < 0 ? -1 : 1;
 
-    int dist_traveled = 0; 
+    oi_setWheels(direction * FAST_SPEED, direction * FAST_SPEED);
+
     
-    while (dist_traveled < cm * 10) {
+    while (direction * (cm * 10.0 - dist_traveled) > FINE_THRESHOLD_DIS) {
 		oi_update(sensor);
-		dist_traveled += sensor->distance;
+		dist_traveled += sensor->distance * DIS_OFFSET_FACTOR;
+
+		// printf("Fast: %f, |%f - %f| = %f\n", dist_traveled, dist_traveled, (cm * 10.0), fabs(dist_traveled - cm * 10.0));
+
+		if (do_avoid && has_collided(sensor)) {
+		    printf("Avoiding... ");
+            avoid(sensor);
+            printf("Avoided!\n");
+
+            oi_setWheels(direction * FAST_SPEED, direction * FAST_SPEED);
+        }
 	}
 
+    oi_setWheels(direction * FINE_SPEED, direction * FINE_SPEED);
+
+    while (direction * (cm * 10.0 - dist_traveled) > PRECISION) {
+
+        // Update
+        oi_update(sensor);
+
+        // Update current angle with the new sensor data, taking direction and offset into account
+        dist_traveled += sensor->distance * DIS_OFFSET_FACTOR;
+
+        // printf("Slow: %f, %f - %f\n", dist_traveled, dist_traveled, (cm * 10.0));
+
+        if (do_avoid && has_collided(sensor)) {
+            printf("Avoiding... ");
+            avoid(sensor);
+            printf("Avoided!\n");
+            oi_setWheels(direction * FINE_SPEED, direction * FINE_SPEED);
+        }
+
+    }
+
     oi_setWheels(0, 0); // stop
+
+    oi_update(sensor);
+    dist_traveled += (sensor->distance * DIS_OFFSET_FACTOR);
+    printf("Final: %f = %f\n", dist_traveled, dist_traveled / (double)(cm * 10));
 }
 
 void turn_cw(oi_t *sensor, int degrees) {
-    double deg = 0.0;
+    turn_internal(sensor, -degrees);
+}
 
-    oi_setWheels(-FINE_SPEED, FINE_SPEED);
+void turn_ccw(oi_t *sensor, int degrees) {
+    turn_internal(sensor, degrees);
+}
+
+void turn_internal(oi_t *sensor, int target_deg) {
+    // Store current degrees - THIS IS THE *TRUE* VALUE AFTER OFFSET AND DIRECTION
+    double cur_deg = 0.0;
     
-    while (deg < degrees - OFFSET_ANG - 15.0) {
+    // If the angle is negative, the direction is negative (aka clock-wise), 
+    // otherwise the direction is positive (aka counter-clock-wise)
+    int direction = target_deg < 0 ? -1 : 1;
+
+    // Start wheels in oppsite directions, after accounting for direction
+    oi_setWheels(direction * FAST_SPEED, -direction * FAST_SPEED);
+    
+    // Run at the fast speed until the angle is within FINE_THRESHOLD_ANG
+    while (direction * (target_deg - cur_deg) > FINE_THRESHOLD_ANG) {
 		oi_update(sensor);
-		deg = deg - sensor->angle;
-		// printf("Fast: %f\n", deg);
+		cur_deg += (sensor->angle * ANG_OFFSET_FACTOR);
+		// printf("Fast: %f\n", cur_deg);
 	}
 
-    oi_setWheels(-25, 25);
-    
-    while (((double)degrees - (double)OFFSET_ANG - deg) > PRECISION) {
+    // Set wheel speed to the fine speed
+    oi_setWheels(direction * FINE_SPEED, -direction * FINE_SPEED);
+
+    // Run at fine speed until the angle is within precision
+    while (direction * (target_deg - cur_deg) > PRECISION) {
+
+        // Update
         oi_update(sensor);
-        deg = deg - sensor->angle;
-        // printf("Slow: %f\n", deg);
+
+        // Update current angle with the new sensor data, taking direction and offset into account
+        cur_deg += (sensor->angle * ANG_OFFSET_FACTOR);
+        // printf("Slow: %f\n", cur_deg);
     }
 
     oi_setWheels(0, 0); // stop
     oi_update(sensor);
-    printf("Final: %f\n", deg);
-}
-
-void turn_ccw(oi_t *sensor, int degrees) {
-    oi_setWheels(FINE_SPEED, -FINE_SPEED);
-
-    int deg = 0; 
-    
-    while (deg < degrees - OFFSET_ANG) {
-		oi_update(sensor);
-		deg += sensor->angle;
-	}
-
-    oi_setWheels(0, 0); // stop
+    cur_deg += (sensor->angle * ANG_OFFSET_FACTOR);
+    printf("Final: %f = %f\n", cur_deg, cur_deg / (double)target_deg);
 }
 
 void avoid(oi_t *sensor) {
@@ -122,20 +149,20 @@ void avoid(oi_t *sensor) {
 
     // If right is triggered or if both are triggered
     if (has_collided_right(sensor)) {
-        move_internal(sensor, -25);
+        move_internal(sensor, -25, 0);
         turn_ccw(sensor, 90);
-        move_internal(sensor, 25);
+        move_internal(sensor, 25, 0);
         turn_cw(sensor, 90);
-        move_internal(sensor, 25);
+        move_internal(sensor, 25, 0);
     }
 
     // If left is triggered
-    else if (has_collided_right(sensor)) {
-        move_internal(sensor, -25);
+    else if (has_collided_left(sensor)) {
+        move_internal(sensor, -25, 0);
         turn_cw(sensor, 90);
-        move_internal(sensor, 25);
+        move_internal(sensor, 25, 0);
         turn_ccw(sensor, 90);
-        move_internal(sensor, 25);
+        move_internal(sensor, 25, 0);
     }
 
     // Otherwise nothing was triggered so do nothing

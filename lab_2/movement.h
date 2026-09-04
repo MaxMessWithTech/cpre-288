@@ -3,6 +3,7 @@
 
 #include "open_interface.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 /**
  * @name Has Collided on the left side
@@ -33,6 +34,23 @@ int has_collided(oi_t *sensor);
 void move_forward(oi_t *sensor, int centimeters);
 
 /**
+ * @name Move Backward
+ * @param sensor 
+ * @param centimeters
+ */
+void move_backward(oi_t *sensor, int centimeters);
+
+/**
+ * @name Move Internal
+ * @brief Moves internally without 
+ * @param sensor
+ * @param cm positive for forward, negative for backward
+ * @param do_avoid true/false
+ * @private
+ */
+void move_internal(oi_t *sensor, int cm, int do_avoid);
+
+/**
  * @name Turn Clockwise
  * @param sensor
  * @param degrees
@@ -45,6 +63,15 @@ void turn_cw(oi_t *sensor, int degrees);
  * @param degrees
  */
 void turn_ccw(oi_t *sensor, int degrees);
+
+/**
+ * @name Turn Internal
+ * @param sensor
+ * @param target_deg Target Rotation Degrees
+ * @internal
+ * @private
+ */
+void turn_internal(oi_t *sensor, int target_deg);
 
 /**
  * @name Avoid obstacle

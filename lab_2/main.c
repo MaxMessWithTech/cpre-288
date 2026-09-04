@@ -1,9 +1,15 @@
 #include "open_interface.h"
 #include "movement.h"
 #include <stdio.h>
+#include <string.h>
 #include <Timer.h>
+#include <math.h>
+#include "cyBot_uart.h"
+#include "lcd.h"
 
 void step_2();
+void step_2_2();
+void turn_test();
 void step_3();
 void step_4();
 
@@ -12,26 +18,48 @@ void step_4();
  * @author Max Miller
  */
 int main(void) {
-    step_3();
-
-    /*
-    timer_init();
+    // step_4();
 
     oi_t *sensor = oi_alloc();
 
     oi_init(sensor);
+    lcd_init();
+    cyBot_uart_init();
 
-    oi_setMotorCalibration(1.0,1.0);
-
-    int i, j;
+    char c;
+    int i;
+    char* str = (char*)malloc(sizeof(char) * 11);
 
     while (true) {
-        turn_cw(sensor, 90);
-        timer_waitMillis(2000);
-    }
+        c = (char)cyBot_getByte();
 
+        lcd_putc(c);
+
+        if (c == 'w') {
+            move_forward(sensor, 10);
+        }
+        else if (c == 'a') {
+            turn_ccw(sensor, 90);
+        }
+        else if (c == 's') {
+            move_backward(sensor, 10);
+        }
+        else if (c == 'd') {
+            turn_cw(sensor, 90);
+        }
+
+        else if (c == 'm') {
+            sprintf(str, "Got an %c\r\n", c);
+
+            for (i = 0; i < strlen(str); i++) {
+                cyBot_sendByte(str[i]);
+            }
+        }
+
+    }
+    
     oi_free(sensor);
-    */
+
 }
 
 
@@ -54,12 +82,48 @@ void step_2() {
 
 }
 
-void step_3() {
+void step_2_2() {
     oi_t *sensor = oi_alloc();
 
     oi_init(sensor);
 
-    oi_setMotorCalibration(1.0,1.0);
+    move_forward(sensor, 100);
+
+    oi_free(sensor);
+
+}
+
+void turn_test() {
+    timer_init();
+
+    oi_t *sensor = oi_alloc();
+    oi_init(sensor);
+
+    turn_cw(sensor, 90);
+    timer_waitMillis(2000);
+    turn_cw(sensor, 90);
+    timer_waitMillis(2000);
+    turn_cw(sensor, 90);
+    timer_waitMillis(2000);
+    turn_cw(sensor, 90);
+    timer_waitMillis(10000);
+
+    turn_ccw(sensor, 90);
+    timer_waitMillis(2000);
+    turn_ccw(sensor, 90);
+    timer_waitMillis(2000);
+    turn_ccw(sensor, 90);
+    timer_waitMillis(2000);
+    turn_ccw(sensor, 90);
+    timer_waitMillis(2000);
+
+    oi_free(sensor);
+}
+
+void step_3() {
+    oi_t *sensor = oi_alloc();
+
+    oi_init(sensor);
 
     int i, j;
 
